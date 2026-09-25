@@ -76,6 +76,20 @@
   .fill-normal { background: #3fb950; left: 50%; }
   .loading { color: #8b949e; }
   .error { color: #f85149; }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .download-btn {
+    font-size: 14px;
+    background: #238636;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .download-btn:hover { background: #2ea043; }
 </style>
 </head>
 <body>
@@ -132,7 +146,12 @@ function renderCard(data) {
 
   return `
     <div class="card ${cardClass}">
-      <h2>${data.host}:${data.port}</h2>
+      <div class="card-header">
+        <h2>${data.host}:${data.port}</h2>
+        <a class="download-btn" href="${API_BASE}/report/pdf?host=${data.host}&port=${data.port}">
+           ⬇ Download PDF Report
+        </a>
+      </div>
       <p>
         <span class="score-badge ${scoreClass(data.rule_based_risk_score)}">
           Risk Score: ${data.rule_based_risk_score}/100
