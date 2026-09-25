@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import joblib
 import pandas as pd
 import shap
 
 from feature_extraction import extract_features
 from risk_engine import analyze_certificate, analyze_tls_version
+from generate_report import full_analysis, export_json, export_pdf
 import ssl, socket
 from cryptography import x509
 
@@ -90,5 +92,25 @@ def analyze(host: str = "localhost", port: int = 993):
             "findings": findings,
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/report/pdf")
+def report_pdf(host: str = "localhost", port: int = 993):
+    try:
+        data = full_analysis(host, port)
+        filename = f"report_{host}_{port}.pdf"
+        export_pdf(data, filename)
+        return FileResponse(filename, media_type="application/pdf", filename=filename)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/report/json")
+def report_json(host: str = "localhost", port: int = 993):
+    try:
+        data = full_analysis(host, port)
+        return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

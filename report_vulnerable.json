@@ -1,0 +1,69 @@
+{
+  "host": "localhost",
+  "port": 9930,
+  "timestamp": "2026-09-25T15:40:52.865980",
+  "features": {
+    "key_size": 2048,
+    "days_remaining": -31,
+    "is_expired": 1,
+    "is_self_signed": 1,
+    "tls_version_score": 4,
+    "cipher_bits": 256,
+    "weak_signature": 0
+  },
+  "ml_prediction": "ANOMALOUS",
+  "ml_anomaly_score": -0.0749,
+  "shap_explanation": [
+    {
+      "feature": "is_expired",
+      "impact": -3.5844
+    },
+    {
+      "feature": "days_remaining",
+      "impact": -1.5473
+    },
+    {
+      "feature": "cipher_bits",
+      "impact": 0.3886
+    },
+    {
+      "feature": "tls_version_score",
+      "impact": 0.3676
+    },
+    {
+      "feature": "key_size",
+      "impact": 0.3567
+    },
+    {
+      "feature": "is_self_signed",
+      "impact": 0.1547
+    },
+    {
+      "feature": "weak_signature",
+      "impact": 0.066
+    }
+  ],
+  "rule_based_risk_score": 75,
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "issue": "Self-signed certificate",
+      "detail": "Certificate is not signed by a trusted CA. Acceptable for internal/test use, risky for production."
+    },
+    {
+      "severity": "CRITICAL",
+      "issue": "Certificate expired",
+      "detail": "Expired 31 days ago"
+    },
+    {
+      "severity": "LOW",
+      "issue": "Acceptable key size",
+      "detail": "2048 bits (4096 recommended for long-term security)"
+    },
+    {
+      "severity": "INFO",
+      "issue": "TLS 1.3 in use",
+      "detail": "Best practice"
+    }
+  ]
+}
