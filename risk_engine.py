@@ -66,30 +66,40 @@ def analyze_tls_version(version_string):
 
 
 if __name__ == "__main__":
-    # Quick test using check_cert.py's logic
     import ssl, socket
 
-    hostname = "localhost"
-    port = 993
+    def get_cert_and_tls(hostname, port):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        context.minimum_version = ssl.TLSVersion.TLSv1
+        context.set_ciphers("ALL:@SECLEVEL=0")
 
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+        with socket.create_connection((hostname, port)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert_der = ssock.getpeercert(binary_form=True)
+                cert_obj = x509.load_der_x509_certificate(cert_der)
+                tls_version = ssock.version()
+        return cert_obj, tls_version
 
-    with socket.create_connection((hostname, port)) as sock:
-        with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-            cert_der = ssock.getpeercert(binary_form=True)
-            cert_obj = x509.load_der_x509_certificate(cert_der)
-            tls_version = ssock.version()
+    servers = [
+        {"name": "Healthy Server (mail.test.local)", "host": "localhost", "port": 993},
+        {"name": "Vulnerable Server (mail-vuln.test.local)", "host": "localhost", "port": 9930},
+    ]
 
-    cert_result = analyze_certificate(cert_obj)
-    tls_result = analyze_tls_version(tls_version)
+    for server in servers:
+        print(f"\n{'='*50}")
+        print(f"=== SecureMailScope Risk Report: {server['name']} ===")
+        print(f"{'='*50}\n")
 
-    total_score = cert_result["risk_score"] + tls_result["risk_score"]
-    all_findings = cert_result["findings"] + tls_result["findings"]
+        cert_obj, tls_version = get_cert_and_tls(server["host"], server["port"])
+        cert_result = analyze_certificate(cert_obj)
+        tls_result = analyze_tls_version(tls_version)
 
-    print(f"=== SecureMailScope Risk Report ===\n")
-    print(f"Overall Risk Score: {total_score}/100+\n")
-    print("Findings:")
-    for f in all_findings:
-        print(f"  [{f['severity']}] {f['issue']}: {f['detail']}")
+        total_score = cert_result["risk_score"] + tls_result["risk_score"]
+        all_findings = cert_result["findings"] + tls_result["findings"]
+
+        print(f"Overall Risk Score: {total_score}/100+\n")
+        print("Findings:")
+        for f in all_findings:
+            print(f"  [{f['severity']}] {f['issue']}: {f['detail']}")
