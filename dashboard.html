@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SecureMailScope Dashboard</title>
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    margin: 0;
+    padding: 30px;
+  }
+  h1 { color: #58a6ff; }
+  .controls {
+    background: #161b22;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  input, button {
+    padding: 8px 12px;
+    margin-right: 10px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    background: #0d1117;
+    color: #e6edf3;
+  }
+  button {
+    background: #238636;
+    cursor: pointer;
+    border: none;
+  }
+  button:hover { background: #2ea043; }
+  .card {
+    background: #161b22;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 5px solid #58a6ff;
+  }
+  .card.anomalous { border-left-color: #f85149; }
+  .card.normal { border-left-color: #3fb950; }
+  .score-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  .score-low { background: #2ea04355; color: #3fb950; }
+  .score-med { background: #d2992255; color: #d29922; }
+  .score-high { background: #f8514955; color: #f85149; }
+  .finding {
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 6px;
+    background: #0d1117;
+  }
+  .sev-CRITICAL { border-left: 4px solid #f85149; }
+  .sev-HIGH { border-left: 4px solid #f0883e; }
+  .sev-MEDIUM { border-left: 4px solid #d29922; }
+  .sev-LOW { border-left: 4px solid #58a6ff; }
+  .sev-INFO { border-left: 4px solid #3fb950; }
+  .shap-bar {
+    display: flex;
+    align-items: center;
+    margin: 6px 0;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  .shap-label { width: 160px; }
+  .shap-track { flex: 1; background: #0d1117; height: 18px; border-radius: 4px; position: relative; margin: 0 10px; }
+  .shap-fill { height: 100%; border-radius: 4px; position: absolute; }
+  .fill-anomalous { background: #f85149; right: 50%; }
+  .fill-normal { background: #3fb950; left: 50%; }
+  .loading { color: #8b949e; }
+  .error { color: #f85149; }
+</style>
+</head>
+<body>
+
+<h1>🛡️ SecureMailScope Dashboard</h1>
+
+<div class="controls">
+  <label>Host: <input type="text" id="host" value="localhost"></label>
+  <label>Port: <input type="number" id="port" value="993"></label>
+  <button onclick="analyze()">Analyze</button>
+  <button onclick="analyzeBoth()">Compare Healthy vs Vulnerable</button>
+</div>
+
+<div id="results"></div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+
+function scoreClass(score) {
+  if (score < 30) return "score-low";
+  if (score < 60) return "score-med";
+  return "score-high";
+}
+
+async function fetchAnalysis(host, port) {
+  const res = await fetch(`${API_BASE}/analyze?host=${host}&port=${port}`);
+  if (!res.ok) throw new Error(`Server responded ${res.status}`);
+  return res.json();
+}
+
+function renderCard(data) {
+  const cardClass = data.ml_prediction === "ANOMALOUS" ? "anomalous" : "normal";
+
+  let findingsHtml = data.findings.map(f => `
+    <div class="finding sev-${f.severity}">
+      <strong>[${f.severity}]</strong> ${f.issue} — ${f.detail}
+    </div>
+  `).join("");
+
+  let shapHtml = data.shap_explanation.map(s => {
+    const magnitude = Math.min(Math.abs(s.impact) * 15, 50);
+    const isAnomalous = s.impact < 0;
+    return `
+      <div class="shap-bar">
+        <div class="shap-label">${s.feature}</div>
+        <div class="shap-track">
+          <div class="shap-fill ${isAnomalous ? 'fill-anomalous' : 'fill-normal'}"
+               style="width:${magnitude}%; ${isAnomalous ? 'right:50%' : 'left:50%'}"></div>
+        </div>
+        <div>${s.impact.toFixed(3)}</div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="card ${cardClass}">
+      <h2>${data.host}:${data.port}</h2>
+      <p>
+        <span class="score-badge ${scoreClass(data.rule_based_risk_score)}">
+          Risk Score: ${data.rule_based_risk_score}/100
+        </span>
+        &nbsp;&nbsp;
+        <strong>ML Verdict:</strong> ${data.ml_prediction}
+        (score: ${data.ml_anomaly_score})
+      </p>
+
+      <h3>Findings</h3>
+      ${findingsHtml || "<p>No issues found.</p>"}
+
+      <h3>SHAP Feature Contributions</h3>
+      <p style="color:#8b949e; font-size:13px;">Red = pushes toward anomalous, Green = pushes toward normal</p>
+      ${shapHtml}
+    </div>
+  `;
+}
+
+async function analyze() {
+  const host = document.getElementById("host").value;
+  const port = document.getElementById("port").value;
+  const results = document.getElementById("results");
+  results.innerHTML = `<p class="loading">Analyzing ${host}:${port}...</p>`;
+
+  try {
+    const data = await fetchAnalysis(host, port);
+    results.innerHTML = renderCard(data);
+  } catch (e) {
+    results.innerHTML = `<p class="error">Error: ${e.message}. Is the API running at ${API_BASE}?</p>`;
+  }
+}
+
+async function analyzeBoth() {
+  const results = document.getElementById("results");
+  results.innerHTML = `<p class="loading">Analyzing both servers...</p>`;
+
+  try {
+    const [healthy, vuln] = await Promise.all([
+      fetchAnalysis("localhost", 993),
+      fetchAnalysis("localhost", 9930)
+    ]);
+    results.innerHTML = renderCard(healthy) + renderCard(vuln);
+  } catch (e) {
+    results.innerHTML = `<p class="error">Error: ${e.message}. Is the API running at ${API_BASE}?</p>`;
+  }
+}
+</script>
+
+</body>
+</html>
