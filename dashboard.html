@@ -125,7 +125,8 @@ function renderCard(data) {
 
   let findingsHtml = data.findings.map(f => `
     <div class="finding sev-${f.severity}">
-      <strong>[${f.severity}]</strong> ${f.issue} — ${f.detail}
+      <strong>[${f.severity}]</strong> ${f.issue} — ${f.detail}<br>
+      <span style="color:#8b949e; font-size:12px;">🔧 Fix: ${f.fix} &nbsp;|&nbsp; 📋 ${f.compliance}</span>
     </div>
   `).join("");
 
